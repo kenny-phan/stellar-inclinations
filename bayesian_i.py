@@ -4,6 +4,12 @@ from scipy.stats import norm
 from scipy.integrate import quad
 import matplotlib.pyplot as plt
 
+def get_velocity(R, P):
+    return 2*np.pi*R/P
+
+def get_sig_velocity(R, P, R_err, P_err):
+    return 2*np.pi*np.sqrt((R_err/P)**2 + (R*R_err/P**2)**2)
+    
 # Gaussian likelihoods
 # def L_v(v, v_obs, sigma_v):
 #     return norm.pdf(v, loc=v_obs, scale=sigma_v)
