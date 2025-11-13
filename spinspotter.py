@@ -16,7 +16,7 @@ import time
 import os
 import importlib
 
-def try_block(hd_name, plot=False):
+def try_block(hd_name, plot=False, verbose=False):
     print(f"Beginning period analysis of {hd_name}")
     # Option 1: Search and download data using LightKurve.
     search_result = lk.search_lightcurve(hd_name)
@@ -28,7 +28,8 @@ def try_block(hd_name, plot=False):
     p_avg_arr, p_err_arr = [], []
 
     for i in range(len(collection)):
-        print(f"using collection {i+1} of {len(collection)}")
+        if verbose:
+            print(f"using collection {i+1} of {len(collection)}")
         lc = collection[i]
     
         # process_LightCurve is where the bulk of the processing takes place
@@ -52,10 +53,10 @@ def try_block(hd_name, plot=False):
     
     return hd_name, p_avg_arr, p_err_arr
 
-def ss_tutorial(hd_name, plot=False):
+def ss_tutorial(hd_name, plot=False, verbose=False):
     
     try:
-        hd_name, p_avg_arr, p_err_arr = try_block(hd_name, plot=plot)
+        hd_name, p_avg_arr, p_err_arr = try_block(hd_name, plot=plot, verbose=verbose)
     
     except TypeError as e:
         if "'NoneType' object is not subscriptable" in str(e):
@@ -63,4 +64,4 @@ def ss_tutorial(hd_name, plot=False):
             hd_name, p_avg_arr, p_err_arr = try_block(hd_name[:-2], collection, plot=plot)
         else:
             raise
-    return hd_name, p_avg_arr, p_err_arr
+    return np.array([p_avg_arr, p_err_arr])
