@@ -1,6 +1,9 @@
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 
+import warnings
+warnings.filterwarnings('ignore')
+
 plt.rcParams.update({'axes.linewidth' : 1.5, 
                      'ytick.major.width' : 1.5,
                      'ytick.minor.width' : 1.5,

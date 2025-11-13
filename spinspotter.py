@@ -16,6 +16,9 @@ import time
 import os
 import importlib
 
+# stellar-inclination codes
+from bayesian_i import get_velocity, get_sig_velocity
+
 def try_block(hd_name, plot=False, verbose=False):
     print(f"Beginning period analysis of {hd_name}")
     # Option 1: Search and download data using LightKurve.
@@ -65,3 +68,28 @@ def ss_tutorial(hd_name, plot=False, verbose=False):
         else:
             raise
     return np.array([p_avg_arr, p_err_arr])
+
+## --- PROGRAMS FOR WHEN ROTATIONAL PERIOD IS MISSING
+def filter_periods(test_data):
+    periods = [] 
+    for i in range(len(test_data[0])): 
+        if not np.isnan(test_data[0][i]): 
+            periods.append(test_data[:, i])
+    return np.array(periods)
+
+def get_v_ss(df, periods, idx_unique, k):
+    R, R_err = df['st_rad'].iloc[idx_unique[k]], df['st_raderr1'].iloc[idx_unique[k]]
+        
+    u_obs, u_sigma = df['st_vsin'].iloc[idx_unique[k]], df['st_vsinerr1'].iloc[idx_unique[k]]
+    
+    # P_arr, P_err_arr = [], []
+    v_obs_arr, v_sigma_arr = [], []
+    for ii, period in enumerate(periods):
+        P, P_err = period[0], period[1]
+        v_obs, v_sigma = get_velocity(R, P), get_sig_velocity(R, P, R_err, P_err)
+        # P_arr.append(P)
+        # P_err_arr.append(P_err)
+        v_obs_arr.append(v_obs)
+        v_sigma_arr.append(v_sigma)
+
+    return np.array(v_obs_arr), np.array(v_sigma_arr), u_obs, u_sigma

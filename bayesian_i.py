@@ -4,6 +4,8 @@ from scipy.stats import norm
 from scipy.integrate import quad
 import matplotlib.pyplot as plt
 
+from style import *
+
 def get_velocity(R, P):
     return 2*np.pi*R/P
 
@@ -41,3 +43,24 @@ def p_cosi(cosi, v_obs, u_obs, v_sigma, u_sigma):
     s = np.sqrt(1 - cosi**2)
     integral, _ = quad(integrand, 0, 20, args=(cosi, v_obs, u_obs, v_sigma, u_sigma))
     return P_cosi(cosi) * integral / s
+
+def plot_cosi(df, v_obs_arr, u_obs, v_sigma_arr, u_sigma, idx_unique, k=0, cosi_grid=np.linspace(0.01, 0.99, 200)):
+    
+    plt.figure(figsize=(6,4))
+    
+    for j in range(len(v_obs_arr)):
+        v_obs, v_sigma = v_obs_arr[j], v_sigma_arr[j]
+        posterior = np.array([p_cosi(c, v_obs_arr[j], u_obs, v_sigma_arr[j], u_sigma) for c in cosi_grid])
+        posterior /= np.trapezoid(posterior, cosi_grid)  # normalize
+    
+        # print(f"most probable cos i for index {j} = {cosi_grid[np.argmax(posterior)]}")
+        # print(f"most probable i = {np.degrees(np.arccos(cosi_grid[np.argmax(posterior)]))} degrees")
+    
+    # --- Plot ---
+        plt.plot(cosi_grid, posterior, lw=2, label=fr'$v = {v_obs:.2f} \pm {v_sigma:.2f}, v sin(i) = {u_obs} \pm {u_sigma}$', color=plot_colors_rgb[j])
+    
+    plt.xlabel(r'$\cos i$')
+    plt.ylabel(r'$p(\cos i \mid D)$ (normalized)')
+    plt.title(f'cos(i) for {df['hd_name'].iloc[idx_unique[k]]}')
+    plt.legend()
+    plt.show()
