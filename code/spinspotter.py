@@ -97,12 +97,17 @@ def try_block(hd_name, plot=False, verbose=False):
 
 def ss_tutorial(hd_name, plot=False, verbose=False):
     # First attempt
-    hd_name, tot_fits_result, tot_process_result = try_block(hd_name, plot=plot, verbose=verbose)
+    hd_name, tot_fits_result, tot_process_result = try_block(
+        hd_name, plot=plot, verbose=verbose
+    )
 
     # If first attempt failed, try with hd_name[:-2]
-    if tot_fits_result is None or tot_process_result is None:
+    if (tot_fits_result is None or tot_process_result is None) and \
+       isinstance(hd_name, str) and hd_name.endswith(("A", "B")):
         print(f"Could not process {hd_name}. Trying {hd_name[:-2]} instead.")
-        hd_name, tot_fits_result, tot_process_result = try_block(hd_name[:-2], plot=plot, verbose=verbose)
+        hd_name, tot_fits_result, tot_process_result = try_block(
+            hd_name[:-2], plot=plot, verbose=verbose
+        )
 
     return tot_fits_result, tot_process_result
 
