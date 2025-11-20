@@ -58,6 +58,7 @@ def try_block(hd_name, plot=False, verbose=False):
     
     try:
         search_result = lk.search_lightcurve(hd_name)
+        exp_times = search_result.exptime.value.astype(int)
         if len(search_result) == 0:
             raise ValueError(f"No lightcurve found for {hd_name}")
 
@@ -74,10 +75,11 @@ def try_block(hd_name, plot=False, verbose=False):
     for i, lc in enumerate(collection):
         if verbose:
             print(f"Using collection {i+1} of {len(collection)}")
+            print(f"Exposure time is {exp_times[i]}")
         
         try:
             # process_LightCurve is your main processing function
-            fits_result, process_result = ss.process_LightCurve(lc, bs=120)
+            fits_result, process_result = ss.process_LightCurve(lc, bs=exp_times[i])
 
             if plot:
                 collection.stitch().plot()
@@ -92,12 +94,12 @@ def try_block(hd_name, plot=False, verbose=False):
             print(f"Error processing lightcurve {i+1} for {hd_name}: {e}")
             continue
 
-    return hd_name, tot_fits_result, tot_process_result
+    return hd_name, tot_fits_result, tot_process_result, exp_times
 
 
 def ss_tutorial(hd_name, plot=False, verbose=False):
     # First attempt
-    hd_name, tot_fits_result, tot_process_result = try_block(
+    hd_name, tot_fits_result, tot_process_result, exp_times = try_block(
         hd_name, plot=plot, verbose=verbose
     )
 
@@ -109,15 +111,16 @@ def ss_tutorial(hd_name, plot=False, verbose=False):
             hd_name[:-2], plot=plot, verbose=verbose
         )
 
-    return tot_fits_result, tot_process_result
+    return tot_fits_result, tot_process_result, exp_times
 
 
-def ss_check_fit(tot_process_result, A_min=0.1, R_min=0.9):
-    good_process_result = []
+def ss_check_fit(tot_process_result, exp_times, A_min=0.1, R_min=0.9):
+    good_process_result, good_exptimes = [], []
     for i, process_result in enumerate(tot_process_result):
         if (process_result['A_avg'] > A_min) and (process_result['R_avg'] > R_min):
             good_process_result.append(process_result)
-    return good_process_result
+            good_exptimes.append(exp_times[i])
+    return good_process_result, good_exptimes
 
     
 ## --- MAKE CUTS
@@ -174,12 +177,13 @@ def get_v_ss(df, periods, idx_unique, k):
     return np.array(v_obs_arr), np.array(v_sigma_arr), u_obs, u_sigma
 
 def get_i_ss(df, hd_name, idx_unique, k, plot_ss=False, plot_i=False):
-    _, tot_process_result = ss_tutorial(hd_name, plot=plot_ss)
+    
+    _, tot_process_result, exp_times = ss_tutorial(hd_name, plot=plot_ss)
 
     periods = []
     for ll, this_process_result in enumerate(tot_process_result):
-        p_avg = ss.bins_to_days(this_process_result['P_avg'], bs=120)
-        p_err = ss.bins_to_days(this_process_result['P_err'], bs=120)
+        p_avg = ss.bins_to_days(this_process_result['P_avg'], bs=exp_times[ll])
+        p_err = ss.bins_to_days(this_process_result['P_err'], bs=exp_times[ll])
         periods.append([p_avg, p_err])
     
     # periods = filter_periods(test_data)
@@ -197,3 +201,51 @@ def get_i_ss(df, hd_name, idx_unique, k, plot_ss=False, plot_i=False):
         i_upr_arr.append(i_upr)
 
     return np.array(i_med_arr), np.array(i_lwr_arr), np.array(i_upr_arr)
+
+def get_best_spin_period(good_fit, good_exptimes):
+    """
+    Returns P_avg and P_err (in days) for the best entry in process_result
+    according to:
+      - largest A_avg
+      - largest R_avg
+      - smallest abs(0.5 - B_avg)
+    
+    Parameters
+    ----------
+    star_data : dict
+        Loaded from consolidated spinspotter .npz, star_data['arr_0'][0] is a list of dicts
+    bs : int
+        bin size for SpinSpotter's bins_to_days conversion
+    
+    Returns
+    -------
+    P_avg_days, P_err_days : float
+        Best period and error in days
+    best_idx : int
+        Index of the selected entry
+    """
+    process_result_list = good_fit#['arr_0']
+    
+    if len(process_result_list) == 0:
+        return np.nan, np.nan, None
+    
+    A_avg_arr = np.array([res['A_avg'] for res in process_result_list])
+    R_avg_arr = np.array([res['R_avg'] for res in process_result_list])
+    B_avg_arr = np.array([res['B_avg'] for res in process_result_list])
+    P_avg_arr = np.array([res['P_avg'] for res in process_result_list])
+    
+    B_score = np.abs(0.5 - B_avg_arr)
+    
+    # Compute a combined score: high A_avg, high R_avg, small abs(0.5 - B_avg)
+    score = A_avg_arr + R_avg_arr - B_score
+
+    mask = ~np.isnan(P_avg_arr)
+    best_idx = np.argmax(score[mask])
+
+    best_result = process_result_list[best_idx]
+    best_exptime = good_exptimes[best_idx]
+    
+    P_avg_days = ss.bins_to_days(best_result['P_avg'], bs=best_exptime)
+    P_err_days = ss.bins_to_days(best_result['P_err'], bs=best_exptime)
+    
+    return P_avg_days, P_err_days, best_idx
